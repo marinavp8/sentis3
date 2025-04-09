@@ -167,18 +167,13 @@ public class NewMonoBehaviourScript : MonoBehaviour
 
         CreateConnections();
 
+        // Load the model
         var PATH = "Assets/StreamingAssets/singlepose-thunder.sentis";
         sourceModel = ModelLoader.Load(PATH);
         Debug.Log("sourceModel: " + sourceModel);
 
         worker = new Worker(sourceModel, BackendType.GPUCompute);
         WebCamDevice[] devices = WebCamTexture.devices;
-        // for debugging purposes, prints available devices to the console
-        for (int i = 0; i < devices.Length; i++)
-        {
-            Debug.Log("Webcam available: " + devices[i].name);
-        }
-        // Check if there are any webcam devices available
         if (devices.Length > 0)
         {
             // Create a new WebCamTexture using the first available webcam
@@ -332,6 +327,7 @@ public class NewMonoBehaviourScript : MonoBehaviour
             // 5. Crear el ITensor a partir del array de datos y la forma
             Tensor tensorEntrada = new Tensor<int>(formaTensor, datosTensor);
             // 6. Usar el ITensor en tu modelo Sentis
+            // inference
             worker.Schedule(tensorEntrada);
             // Get the output tensor from the model
             Tensor<float> outputTensor = worker.PeekOutput() as Tensor<float>;
