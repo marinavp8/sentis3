@@ -147,14 +147,14 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 112148653}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 16, y: 9, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1396388057}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
@@ -295,6 +295,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   middleSphere: {fileID: 0}
+  keypointMaterial: {fileID: 0}
+  keypointColor: {r: 1, g: 0, b: 0, a: 1}
+  keypointSize: 0.05
+  lineColor: {r: 0, g: 1, b: 0, a: 1}
+  pointSize2D: 10
+  pointColor2D: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  brightness: 1.2
+  contrast: 1.2
 --- !u!65 &1396388059
 BoxCollider:
   m_ObjectHideFlags: 0
