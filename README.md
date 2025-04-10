@@ -68,11 +68,9 @@ En el directorio StreamingAssets se crea el archivo .sentis
 
 # Estado del proyecto
 
-La situacion es que no se pintan los puntos. Es posible que no este bien hecho el tensort de entrada.
-Habria que analizar el resultado de la inferencia para ver si va bien.
-Habria que medir los tiempos de inferencia, para ver si es mas rapido que Function
-Habria que mirar con el modelo lightning para ver si es mas rapido como dice la documentacion.
-Tambien si ligning es lo suficientemente preciso.
+La situación es que no se dibujan bien los puntos. Es posible que no esté bien hecho el tensor de entrada.
+Habría que analizar el resultado de la inferencia para ver si está bien hecha.
+Cuando lo logremos podemos usar el mismo código para comparar la precisión y tiempos de ligthing (singlepose) y thunder.
 
 
 
