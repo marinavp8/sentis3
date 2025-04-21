@@ -9,13 +9,13 @@ public class NewMonoBehaviourScript : MonoBehaviour
     public Worker worker;
     public Dictionary<string, GameObject> keypoints;
     private float lastProcessTime = 0f;
-    public Material keypointMaterial; // Material para las esferas
-    public Color keypointColor = Color.red; // Color para los keypoints
-    public float keypointSize = 0.05f; // Tamaño de los keypoints
-    public Color lineColor = Color.green; // Color para las líneas
+    public Material keypointMaterial;
+    public Color keypointColor = Color.red;
+    public float keypointSize = 0.02f;
+    public Color lineColor = Color.green;
     private LineRenderer[] connections;
 
-    // Definir las conexiones entre keypoints para formar el esqueleto
+
     private readonly (string, string)[] skeletonConnections = new[]
     {
         ("nose", "leftEye"), ("nose", "rightEye"),
@@ -30,8 +30,7 @@ public class NewMonoBehaviourScript : MonoBehaviour
         ("rightHip", "rightKnee"), ("rightKnee", "rightAnkle")
     };
 
-    // Start is called before the first frame update
-    const string keypointNames = "leftAnkle,leftEar,leftElbow,leftEye,leftHip,leftKnee,leftShoulder,leftWrist,nose,rect,rightAnkle,rightEar,rightElbow,rightEye,rightHip,rightKnee,rightShoulder,rightWrist";
+    const string keypointNames = "nose,leftEye,rightEye,leftEar,rightEar,leftShoulder,rightShoulder,leftElbow,rightElbow,leftWrist,rightWrist,leftHip,rightHip,leftKnee,rightKnee,leftAnkle,rightAnkle";
 
     private GameObject CreateKeypointSphere(string name)
     {
@@ -47,7 +46,7 @@ public class NewMonoBehaviourScript : MonoBehaviour
         }
         else
         {
-            renderer.material = new Material(Shader.Find("Sprites/Default")); // Cambiamos a Sprites/Default para mejor visibilidad
+            renderer.material = new Material(Shader.Find("Sprites/Default"));
         }
         renderer.material.color = keypointColor;
         return sphere;
@@ -93,7 +92,6 @@ public class NewMonoBehaviourScript : MonoBehaviour
         }
     }
 
-    // Variables para dibujo 2D
     public float pointSize2D = 10f;
     public Color pointColor2D = Color.yellow;
     private Dictionary<string, Vector2> keypoints2D = new Dictionary<string, Vector2>();
@@ -103,6 +101,23 @@ public class NewMonoBehaviourScript : MonoBehaviour
     // Variables para ajuste de imagen
     public float brightness = 1.2f; // Ajuste de brillo, > 1 aumenta, < 1 disminuye
     public float contrast = 1.2f;   // Ajuste de contraste, > 1 aumenta, < 1 disminuye
+    public float confidenceThreshold = 0.2f;
+    public float smoothingFactor = 0.3f;
+
+    private Dictionary<string, Vector3> lastPositions = new Dictionary<string, Vector3>();
+
+    private Vector3 SmoothPosition(Vector3 currentPosition, string keypointName)
+    {
+        if (!lastPositions.ContainsKey(keypointName))
+        {
+            lastPositions[keypointName] = currentPosition;
+            return currentPosition;
+        }
+
+        Vector3 smoothedPosition = Vector3.Lerp(lastPositions[keypointName], currentPosition, smoothingFactor);
+        lastPositions[keypointName] = smoothedPosition;
+        return smoothedPosition;
+    }
 
     private Color32[] AdjustImageColors(Color32[] originalColors)
     {
@@ -144,12 +159,10 @@ public class NewMonoBehaviourScript : MonoBehaviour
 
     void Start()
     {
-        // Asegurarnos de que el objeto está en la posición correcta
         transform.localPosition = Vector3.zero;
         transform.localRotation = Quaternion.identity;
         transform.localScale = Vector3.one;
 
-        // Ajustar el tamaño del plano para que coincida con el aspecto de la cámara
         if (GetComponent<MeshFilter>().mesh.name == "Quad")
         {
             transform.localScale = new Vector3(4, 3, 1); // Aspecto 4:3 común en webcams
@@ -167,7 +180,6 @@ public class NewMonoBehaviourScript : MonoBehaviour
 
         CreateConnections();
 
-        // Load the model
         var PATH = "Assets/StreamingAssets/singlepose-thunder.sentis";
         sourceModel = ModelLoader.Load(PATH);
         Debug.Log("sourceModel: " + sourceModel);
@@ -176,12 +188,9 @@ public class NewMonoBehaviourScript : MonoBehaviour
         WebCamDevice[] devices = WebCamTexture.devices;
         if (devices.Length > 0)
         {
-            // Create a new WebCamTexture using the first available webcam
             WebCamTexture webCamTexture = new WebCamTexture();
 
-            // Get the Renderer component from the GameObject
             Renderer renderer = GetComponent<Renderer>();
-            // If the GameObject has a Renderer component, assign the webcam texture to it
             if (renderer != null)
             {
                 renderer.material.mainTexture = webCamTexture;
@@ -193,7 +202,6 @@ public class NewMonoBehaviourScript : MonoBehaviour
             Debug.LogWarning("No webcam devices found.");
         }
 
-        // Crear textura para los puntos 2D
         pointTexture = new Texture2D(1, 1);
         pointTexture.SetPixel(0, 0, Color.white);
         pointTexture.Apply();
@@ -203,7 +211,6 @@ public class NewMonoBehaviourScript : MonoBehaviour
     {
         if (keypoints2D == null || keypoints2D.Count == 0) return;
 
-        // Obtener el renderer y la textura de la webcam
         Renderer renderer = GetComponent<Renderer>();
         if (renderer == null || !(renderer.material.mainTexture is WebCamTexture)) return;
         WebCamTexture webCamTexture = (WebCamTexture)renderer.material.mainTexture;
@@ -225,13 +232,12 @@ public class NewMonoBehaviourScript : MonoBehaviour
         // Dibujar cada punto
         foreach (var kvp in keypoints2D)
         {
-            if (!keypointConfidence.ContainsKey(kvp.Key) || keypointConfidence[kvp.Key] < 0.5f) continue;
+            if (!keypointConfidence.ContainsKey(kvp.Key) || keypointConfidence[kvp.Key] < confidenceThreshold) continue;
 
             // Convertir coordenadas normalizadas a coordenadas de pantalla dentro del viewport de la cámara
             float screenX = leftIndent + (kvp.Value.x * scaleWidth);
-            float screenY = kvp.Value.y * scaleHeight;
+            float screenY = (1f - kvp.Value.y) * scaleHeight; // Invertir Y para que coincida con el sistema 3D
 
-            // Dibujar el punto
             GUI.color = pointColor2D;
             GUI.DrawTexture(
                 new Rect(screenX - pointSize2D / 2, screenY - pointSize2D / 2, pointSize2D, pointSize2D),
@@ -255,24 +261,23 @@ public class NewMonoBehaviourScript : MonoBehaviour
         }
     }
 
-    // Update is called once per frame
     void Update()
     {
-        // Only run inference every 0.1 seconds to avoid performance issues
+        // Inferir cada 0.1 segundos para evitar problemas de rendimiento
         if (Time.time - lastProcessTime < 0.1f)
             return;
 
         lastProcessTime = Time.time;
 
-        // Get the webcam texture from the renderer
+        // Obtener la textura de la webcam del renderer
         Renderer renderer = GetComponent<Renderer>();
         if (renderer == null || renderer.material.mainTexture == null || !(renderer.material.mainTexture is WebCamTexture))
             return;
 
         WebCamTexture webCamTexture = (WebCamTexture)renderer.material.mainTexture;
 
-        // Convert a texture to a tensor
-        // Create a Texture2D from the WebCamTexture
+        // Convertir una textura a un tensor
+        // Crear una Texture2D a partir de la WebCamTexture
         Texture2D texture2D = new Texture2D(webCamTexture.width, webCamTexture.height);
 
         // Obtener los colores y ajustar brillo/contraste
@@ -283,21 +288,21 @@ public class NewMonoBehaviourScript : MonoBehaviour
         texture2D.SetPixels32(adjustedColors);
         texture2D.Apply();
 
-        // Resize the texture to 256x256 for the model input
+        // Redimensionar la textura a 256x256 para el input del modelo
         Texture2D resizedTexture = new Texture2D(256, 256);
 
-        // Create a temporary RenderTexture for resizing
+        // Crear una RenderTexture temporal para redimensionar
         RenderTexture rt = RenderTexture.GetTemporary(256, 256);
         Graphics.Blit(texture2D, rt);
 
-        // Read the resized texture
+        // Leer la textura redimensionada
         RenderTexture.active = rt;
         resizedTexture.ReadPixels(new Rect(0, 0, 256, 256), 0, 0);
         resizedTexture.Apply();
         RenderTexture.active = null;
         RenderTexture.ReleaseTemporary(rt);
 
-        // Replace the original texture with the resized one
+        // Reemplazar la textura original con la redimensionada
         texture2D = resizedTexture;
         try
         {
@@ -359,28 +364,30 @@ public class NewMonoBehaviourScript : MonoBehaviour
                     }
 
                     // Cada keypoint tiene 3 valores (x, y, confidence)
-                    float x = outputData[baseIndex];
-                    float y = outputData[baseIndex + 1];
+                    float y = outputData[baseIndex];
+                    float x = outputData[baseIndex + 1];
                     float confidence = outputData[baseIndex + 2];
 
                     // Solo actualizamos si la confianza es suficiente
-                    if (confidence > 0.5f)
+                    if (confidence > confidenceThreshold)
                     {
                         // Convertir coordenadas de la imagen (0-1) a coordenadas del mundo
-                        // Ajustamos las coordenadas para que coincidan con el tamaño del plano
-                        Vector3 worldPosition = new Vector3(
-                            (x - 0.5f) * transform.localScale.x, // Multiplicamos por la escala del plano
-                            (0.5f - y) * transform.localScale.y, // Multiplicamos por la escala del plano
-                            -0.1f // Ligeramente delante del plano
+                        Vector3 rawPosition = new Vector3(
+                            (0.5f - x) * transform.localScale.x,
+                            (0.5f - y) * transform.localScale.y,
+                            -0.1f
                         );
 
-                        keypoints[keypointName].transform.localPosition = worldPosition;
+                        // Aplicar suavizado a la posición
+                        Vector3 smoothedPosition = SmoothPosition(rawPosition, keypointName);
+
+                        keypoints[keypointName].transform.localPosition = smoothedPosition;
                         keypoints[keypointName].SetActive(true);
 
                         // Debug para ver las coordenadas
-                        Debug.Log($"Keypoint {keypointName}: x={x}, y={y}, pos={worldPosition}");
+                        Debug.Log($"Keypoint {keypointName}: confidence={confidence}, x={x}, y={y}, pos={smoothedPosition}");
 
-                        // Agregar coordenadas 2D
+                        // Agregar coordenadas 2D (usando las mismas coordenadas que para 3D)
                         keypoints2D[keypointName] = new Vector2(x, y);
                         keypointConfidence[keypointName] = confidence;
                     }
