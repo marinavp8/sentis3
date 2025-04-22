@@ -256,10 +256,11 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1396388057}
+  - component: {fileID: 1396388062}
+  - component: {fileID: 1396388058}
   - component: {fileID: 1396388061}
   - component: {fileID: 1396388060}
   - component: {fileID: 1396388059}
-  - component: {fileID: 1396388058}
   m_Layer: 0
   m_Name: Cube
   m_TagString: Untagged
@@ -275,9 +276,9 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1396388056}
   serializedVersion: 2
-  m_LocalRotation: {x: 1, y: 0, z: 0, w: 0}
+  m_LocalRotation: {x: 1, y: -0, z: -0, w: 0}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 16, y: 16, z: 1}
+  m_LocalScale: {x: 16, y: 16, z: 16}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 112148654}
@@ -294,15 +295,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9d8485464bfb741c7a8eabc67d7385f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  middleSphere: {fileID: 0}
-  keypointMaterial: {fileID: 0}
-  keypointColor: {r: 1, g: 0, b: 0, a: 1}
+  keypointMaterial: {fileID: 2100000, guid: 2a8939eb1aefe9a4b947775a063a8776, type: 2}
   keypointSize: 0.05
-  lineColor: {r: 0, g: 1, b: 0, a: 1}
+  lineMaterial: {fileID: 2100000, guid: f637f7dd0b486f7449b4b1788ccd2cdb, type: 2}
   pointSize2D: 10
   pointColor2D: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-  brightness: 1.2
-  contrast: 1.2
+  confidenceThreshold: 0.2
+  smoothingFactor: 0.3
 --- !u!65 &1396388059
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -344,7 +343,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10754, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: e9a90c5b0c54cbf49916ae32f32cbf9f, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -374,6 +373,20 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1396388056}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!114 &1396388062
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1396388056}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c1f389fa7556ced4792c9c0fa2a785a5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  brightness: 1.2
+  contrast: 1.2
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
