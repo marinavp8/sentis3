@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Unity.Sentis;
 using UnityEngine;
+using UnityEngine.UI;
 
 [RequireComponent(typeof(CaptureTexture_Controller))]
 public class NewMonoBehaviourScript : MonoBehaviour
@@ -8,7 +9,7 @@ public class NewMonoBehaviourScript : MonoBehaviour
     private CaptureTexture_Controller _capture = null;
     private Renderer _mirror = null;
     private Texture2D _texture = null;
-
+    
     private Model sourceModel;
     private Worker worker;
     float lastProcessTime = 0f;
@@ -75,10 +76,15 @@ public class NewMonoBehaviourScript : MonoBehaviour
         }
 
         CreateConnections();
-
-    var PATH = "Assets/MSL - Sentis/StreamingAssets/singlepose-thunder.sentis";
+        string PATH = "";
+#if UNITY_EDITOR
+        PATH = "Assets/StreamingAssets/singlepose-thunder.sentis";
+#endif
+#if !UNITY_EDITOR
+            PATH = Application.streamingAssetsPath + "/singlepose-thunder.sentis";
+#endif
         sourceModel = ModelLoader.Load(PATH);
-        Debug.Log("sourceModel: " + sourceModel);
+        Logger.Log("sourceModel: " + sourceModel);
 
         worker = new Worker(sourceModel, BackendType.GPUCompute);
         _mirror.material.mainTexture = _capture.toTexture2D();
@@ -136,19 +142,6 @@ public class NewMonoBehaviourScript : MonoBehaviour
                 }
             }
         }
-    }
-
-    private Vector3 SmoothPosition(Vector3 currentPosition, string keypointName)
-    {
-        if (!lastPositions.ContainsKey(keypointName))
-        {
-            lastPositions[keypointName] = currentPosition;
-            return currentPosition;
-        }
-
-        Vector3 smoothedPosition = Vector3.Lerp(lastPositions[keypointName], currentPosition, smoothingFactor);
-        lastPositions[keypointName] = smoothedPosition;
-        return smoothedPosition;
     }
 
     //void OnGUI()
@@ -214,7 +207,7 @@ public class NewMonoBehaviourScript : MonoBehaviour
         {
             // 1. Obtener los datos de la textura como un array de colores
             Color32[] colores = _texture.GetPixels32();
-            Debug.Log($"Texture size: {_texture.width}x{_texture.height}, Colors length: {colores.Length}");
+            Logger.Log($"Texture size: {_texture.width}x{_texture.height}, Colors length: {colores.Length}");
 
             // 2. Crear un array de enteros para los datos del tensor
             int[] datosTensor = new int[_texture.width * _texture.height * 3];
@@ -231,22 +224,25 @@ public class NewMonoBehaviourScript : MonoBehaviour
                     datosTensor[indiceTensor++] = color.b; // Azul
                 }
             }
-            Debug.Log($"Tensor data size: {datosTensor.Length}");
+            Logger.Log($"Tensor data size: {datosTensor.Length}");
 
             // 4. Crear la forma del tensor (1, 256, 256, 3)
             TensorShape formaTensor = new TensorShape(1, _texture.height, _texture.width, 3);
+
             // 5. Crear el ITensor a partir del array de datos y la forma
             Tensor tensorEntrada = new Tensor<int>(formaTensor, datosTensor);
+
             // 6. Usar el ITensor en tu modelo Sentis
             // inference
             worker.Schedule(tensorEntrada);
+
             // Get the output tensor from the model
             Tensor<float> outputTensor = worker.PeekOutput() as Tensor<float>;
-            Debug.Log("outputTensor shape: " + outputTensor.shape);
-            Debug.Log("outputTensor dataType: " + outputTensor.dataType);
+            Logger.Log("outputTensor shape: " + outputTensor.shape);
+            Logger.Log("outputTensor dataType: " + outputTensor.dataType);
             var readableTensor = outputTensor.ReadbackAndClone();
             var outputData = readableTensor.AsReadOnlySpan();
-            Debug.Log("outputData length: " + outputData.Length);
+            Logger.Log("outputData length: " + outputData.Length);
 
             // Actualizar posiciones de los keypoints
             string[] keypointNameArray = keypointNames.Split(',');
@@ -265,7 +261,7 @@ public class NewMonoBehaviourScript : MonoBehaviour
                     int baseIndex = keypointIndex * 3;
                     if (baseIndex + 2 >= outputData.Length)
                     {
-                        Debug.LogError($"Index out of bounds for keypoint {keypointName}. Base index: {baseIndex}, Output length: {outputData.Length}");
+                        Logger.LogError($"Index out of bounds for keypoint {keypointName}. Base index: {baseIndex}, Output length: {outputData.Length}");
                         break;
                     }
 
@@ -284,14 +280,11 @@ public class NewMonoBehaviourScript : MonoBehaviour
                             -1f
                         );
 
-                        // Aplicar suavizado a la posición
-                        Vector3 smoothedPosition = SmoothPosition(rawPosition, keypointName);
-
-                        keypoints[keypointName].transform.localPosition = smoothedPosition;
+                        keypoints[keypointName].transform.localPosition = rawPosition;
                         keypoints[keypointName].SetActive(true);
 
                         // Debug para ver las coordenadas
-                        Debug.Log($"Keypoint {keypointName}: confidence={confidence}, x={x}, y={y}, pos={smoothedPosition}");
+                        Logger.Log($"Keypoint {keypointName}: confidence={confidence}, x={x}, y={y}, pos={rawPosition}");
 
                         // Agregar coordenadas 2D (usando las mismas coordenadas que para 3D)
                         keypoints2D[keypointName] = new Vector2(x, y);
@@ -319,7 +312,7 @@ public class NewMonoBehaviourScript : MonoBehaviour
         }
         catch (System.Exception e)
         {
-            Debug.LogError("Error al generar el tensor Sentis: " + e.Message);
+            Logger.LogError("Error al generar el tensor Sentis: " + e.Message);
         }
     }
 }

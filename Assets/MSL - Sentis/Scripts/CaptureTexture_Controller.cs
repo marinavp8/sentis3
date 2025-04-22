@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class CaptureTexture_Controller : MonoBehaviour
 {
@@ -9,6 +10,8 @@ public class CaptureTexture_Controller : MonoBehaviour
 
     [SerializeField] float brightness = 1.2f; // Ajuste de brillo, > 1 aumenta, < 1 disminuye
     [SerializeField] float contrast = 1.2f;   // Ajuste de contraste, > 1 aumenta, < 1 disminuye
+
+    [SerializeField] RawImage _mirror;
 
     public void Awake()
     {
@@ -42,6 +45,8 @@ public class CaptureTexture_Controller : MonoBehaviour
             // Copiar los píxeles desde WebCamTexture a Texture2D
             _textureResult.SetPixels(rTex.GetPixels());
             _textureResult.Apply();
+
+            _mirror.texture = _textureResult;
 
             //_textureResult = new Texture2D(rTex.width, rTex.height);
 
