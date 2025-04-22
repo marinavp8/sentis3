@@ -7,6 +7,7 @@ public class CaptureTexture_Controller : MonoBehaviour
 {
     private WebCamTexture _webcamTexture;
     private Texture2D _textureResult;
+    private Texture2D _resizedTexture;
 
     [SerializeField] float brightness = 1.2f; // Ajuste de brillo, > 1 aumenta, < 1 disminuye
     [SerializeField] float contrast = 1.2f;   // Ajuste de contraste, > 1 aumenta, < 1 disminuye
@@ -33,33 +34,32 @@ public class CaptureTexture_Controller : MonoBehaviour
         if (_textureResult != null)
         {
             Destroy(_textureResult);
+            _textureResult = null;
+            Destroy(_resizedTexture);
+            _resizedTexture = null;
         }
 
-        WebCamTexture rTex = _webcamTexture as WebCamTexture;
-
-        if (rTex != null)
-        {
             // Crear una nueva textura 2D con el mismo tamaño que la WebCamTexture
-            _textureResult = new Texture2D(rTex.width, rTex.height, TextureFormat.RGB24, false);
+            _textureResult = new Texture2D(_webcamTexture.width, _webcamTexture.height, TextureFormat.RGB24, false);
 
             // Copiar los píxeles desde WebCamTexture a Texture2D
-            _textureResult.SetPixels(rTex.GetPixels());
+            _textureResult.SetPixels(_webcamTexture.GetPixels());
             _textureResult.Apply();
 
             _mirror.texture = _textureResult;
 
-            //_textureResult = new Texture2D(rTex.width, rTex.height);
+            // //_textureResult = new Texture2D(rTex.width, rTex.height);
 
-            // Obtener los colores y ajustar brillo/contraste
-            //Color32[] originalColors = _textureResult.GetPixels32();
-            //Color32[] adjustedColors = AdjustImageColors(originalColors);
+            // // Obtener los colores y ajustar brillo/contraste
+            // //Color32[] originalColors = _textureResult.GetPixels32();
+            // //Color32[] adjustedColors = AdjustImageColors(originalColors);
 
-            //// Aplicar los colores ajustados
-            //_textureResult.SetPixels32(adjustedColors);
-            //_textureResult.Apply();
+            // //// Aplicar los colores ajustados
+            // //_textureResult.SetPixels32(adjustedColors);
+            // //_textureResult.Apply();
 
             // Redimensionar la textura a 256x256 para el input del modelo
-            Texture2D resizedTexture = new Texture2D(256, 256);
+            _resizedTexture = new Texture2D(256, 256);
 
             // Crear una RenderTexture temporal para redimensionar
             RenderTexture rt = RenderTexture.GetTemporary(256, 256);
@@ -67,17 +67,12 @@ public class CaptureTexture_Controller : MonoBehaviour
 
             // Leer la textura redimensionada
             RenderTexture.active = rt;
-            resizedTexture.ReadPixels(new Rect(0, 0, 256, 256), 0, 0);
-            resizedTexture.Apply();
+            _resizedTexture.ReadPixels(new Rect(0, 0, 256, 256), 0, 0);
+            _resizedTexture.Apply();
             RenderTexture.active = null;
             RenderTexture.ReleaseTemporary(rt);
 
-            _textureResult = resizedTexture;
-
-            Destroy(resizedTexture);
-            return _textureResult;
-        }
-        return null;
+            return _resizedTexture;
     }
 
     private Color32[] AdjustImageColors(Color32[] originalColors)

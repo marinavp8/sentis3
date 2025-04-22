@@ -6,30 +6,27 @@ using UnityEngine.UI;
 [RequireComponent(typeof(CaptureTexture_Controller))]
 public class NewMonoBehaviourScript : MonoBehaviour
 {
+    [Header("WebCam Texture")]
     private CaptureTexture_Controller _capture = null;
     private Renderer _mirror = null;
     private Texture2D _texture = null;
-    
+
+
+    [Header("Sentis Variables")]
     private Model sourceModel;
     private Worker worker;
-    float lastProcessTime = 0f;
+    private float lastProcessTime = 0f;
     public Dictionary<string, GameObject> keypoints;
     [SerializeField] Material keypointMaterial;
     [SerializeField] float keypointSize = 0.02f;
     [SerializeField] Material lineMaterial;
     private LineRenderer[] connections;
-
-    public float pointSize2D = 10f;
-    public Color pointColor2D = Color.yellow;
+    [SerializeField] float pointSize2D = 10f;
+    [SerializeField] Color pointColor2D = Color.yellow;
     private Dictionary<string, Vector2> keypoints2D = new Dictionary<string, Vector2>();
     private Dictionary<string, float> keypointConfidence = new Dictionary<string, float>();
     private Texture2D pointTexture;
-
-    // Variables para ajuste de imagen
-    public float confidenceThreshold = 0.2f;
-    public float smoothingFactor = 0.3f;
-
-    private Dictionary<string, Vector3> lastPositions = new Dictionary<string, Vector3>();
+    [SerializeField] float confidenceThreshold = 0.2f;
 
 
     private readonly (string, string)[] skeletonConnections = new[]
@@ -144,63 +141,14 @@ public class NewMonoBehaviourScript : MonoBehaviour
         }
     }
 
-    //void OnGUI()
-    //{
-    //    if (keypoints2D == null || keypoints2D.Count == 0) return;
-
-    //    // Calcular el rectángulo donde se muestra la imagen de la cámara
-    //    float aspectRatio = (float)_texture.width / _texture.height;
-    //    float scaleHeight = Screen.height;
-    //    float scaleWidth = scaleHeight * aspectRatio;
-    //    float leftIndent = (Screen.width - scaleWidth) / 2;
-
-    //    Rect cameraRect = new Rect(leftIndent, 0, scaleWidth, scaleHeight);
-
-    //    // Configurar estilo para el texto
-    //    GUIStyle style = new GUIStyle(GUI.skin.label);
-    //    style.normal.textColor = Color.white;
-    //    style.fontSize = 12;
-    //    style.fontStyle = FontStyle.Bold;
-
-    //    // Dibujar cada punto
-    //    foreach (var kvp in keypoints2D)
-    //    {
-    //        if (!keypointConfidence.ContainsKey(kvp.Key) || keypointConfidence[kvp.Key] < confidenceThreshold) continue;
-
-    //        // Convertir coordenadas normalizadas a coordenadas de pantalla dentro del viewport de la cámara
-    //        float screenX = leftIndent + (kvp.Value.x * scaleWidth);
-    //        float screenY = (1f - kvp.Value.y) * scaleHeight; // Invertir Y para que coincida con el sistema 3D
-
-    //        GUI.color = pointColor2D;
-    //        GUI.DrawTexture(
-    //            new Rect(screenX - pointSize2D / 2, screenY - pointSize2D / 2, pointSize2D, pointSize2D),
-    //            pointTexture
-    //        );
-
-    //        // Dibujar el nombre del punto y su score
-    //        string label = $"{kvp.Key} ({keypointConfidence[kvp.Key]:F2})";
-    //        GUI.color = Color.black;
-    //        GUI.Label(
-    //            new Rect(screenX + pointSize2D / 2 + 1, screenY - pointSize2D / 2 + 1, 150, 20),
-    //            label,
-    //            style
-    //        );
-    //        GUI.color = Color.white;
-    //        GUI.Label(
-    //            new Rect(screenX + pointSize2D / 2, screenY - pointSize2D / 2, 150, 20),
-    //            label,
-    //            style
-    //        );
-    //    }
-    //}
-
     void Update()
     {
-        // Inferir cada 0.1 segundos para evitar problemas de rendimiento
+        // // Inferir cada 0.1 segundos para evitar problemas de rendimiento
         if (Time.time - lastProcessTime < 0.1f)
             return;
 
         lastProcessTime = Time.time;
+
         _texture = _capture.toTexture2D();
         _mirror.material.mainTexture = _texture;
         try
@@ -315,4 +263,55 @@ public class NewMonoBehaviourScript : MonoBehaviour
             Logger.LogError("Error al generar el tensor Sentis: " + e.Message);
         }
     }
+
+
+        //void OnGUI()
+    //{
+    //    if (keypoints2D == null || keypoints2D.Count == 0) return;
+
+    //    // Calcular el rectángulo donde se muestra la imagen de la cámara
+    //    float aspectRatio = (float)_texture.width / _texture.height;
+    //    float scaleHeight = Screen.height;
+    //    float scaleWidth = scaleHeight * aspectRatio;
+    //    float leftIndent = (Screen.width - scaleWidth) / 2;
+
+    //    Rect cameraRect = new Rect(leftIndent, 0, scaleWidth, scaleHeight);
+
+    //    // Configurar estilo para el texto
+    //    GUIStyle style = new GUIStyle(GUI.skin.label);
+    //    style.normal.textColor = Color.white;
+    //    style.fontSize = 12;
+    //    style.fontStyle = FontStyle.Bold;
+
+    //    // Dibujar cada punto
+    //    foreach (var kvp in keypoints2D)
+    //    {
+    //        if (!keypointConfidence.ContainsKey(kvp.Key) || keypointConfidence[kvp.Key] < confidenceThreshold) continue;
+
+    //        // Convertir coordenadas normalizadas a coordenadas de pantalla dentro del viewport de la cámara
+    //        float screenX = leftIndent + (kvp.Value.x * scaleWidth);
+    //        float screenY = (1f - kvp.Value.y) * scaleHeight; // Invertir Y para que coincida con el sistema 3D
+
+    //        GUI.color = pointColor2D;
+    //        GUI.DrawTexture(
+    //            new Rect(screenX - pointSize2D / 2, screenY - pointSize2D / 2, pointSize2D, pointSize2D),
+    //            pointTexture
+    //        );
+
+    //        // Dibujar el nombre del punto y su score
+    //        string label = $"{kvp.Key} ({keypointConfidence[kvp.Key]:F2})";
+    //        GUI.color = Color.black;
+    //        GUI.Label(
+    //            new Rect(screenX + pointSize2D / 2 + 1, screenY - pointSize2D / 2 + 1, 150, 20),
+    //            label,
+    //            style
+    //        );
+    //        GUI.color = Color.white;
+    //        GUI.Label(
+    //            new Rect(screenX + pointSize2D / 2, screenY - pointSize2D / 2, 150, 20),
+    //            label,
+    //            style
+    //        );
+    //    }
+    //}
 }

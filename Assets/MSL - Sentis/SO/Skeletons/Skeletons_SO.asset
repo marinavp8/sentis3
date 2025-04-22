@@ -1,0 +1,53 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 717411ff960877c4d9adfdae0c2a1509, type: 3}
+  m_Name: Skeletons_SO
+  m_EditorClassIdentifier: 
+  _list:
+  - name: movenet-thunder
+    bones:
+    - start: nose
+      end: leftEye
+    - start: nose
+      end: rightEye
+    - start: leftEye
+      end: leftEar
+    - start: rightEye
+      end: rightEar
+    - start: nose
+      end: leftShoulder
+    - start: nose
+      end: rightShoulder
+    - start: leftShoulder
+      end: rightShoulder
+    - start: leftShoulder
+      end: leftElbow
+    - start: leftElbow
+      end: leftWrist
+    - start: rightShoulder
+      end: rightElbow
+    - start: rightElbow
+      end: rightWrist
+    - start: leftShoulder
+      end: leftHip
+    - start: rightShoulder
+      end: rightHip
+    - start: leftHip
+      end: rightHip
+    - start: leftHip
+      end: leftKnee
+    - start: leftKnee
+      end: leftAnkle
+    - start: rightHip
+      end: rightKnee
+    - start: rightKnee
+      end: rightAnkle

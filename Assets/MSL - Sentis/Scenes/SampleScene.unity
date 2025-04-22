@@ -479,7 +479,6 @@ GameObject:
   - component: {fileID: 1396388058}
   - component: {fileID: 1396388061}
   - component: {fileID: 1396388060}
-  - component: {fileID: 1396388059}
   m_Layer: 0
   m_Name: Cube
   m_TagString: Untagged
@@ -514,7 +513,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9d8485464bfb741c7a8eabc67d7385f8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _text: {fileID: 700733113}
   keypointMaterial: {fileID: 2100000, guid: 2a8939eb1aefe9a4b947775a063a8776, type: 2}
   keypointSize: 0.05
   lineMaterial: {fileID: 2100000, guid: f637f7dd0b486f7449b4b1788ccd2cdb, type: 2}
@@ -522,27 +520,6 @@ MonoBehaviour:
   pointColor2D: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   confidenceThreshold: 0.2
   smoothingFactor: 0.3
---- !u!65 &1396388059
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1396388056}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!23 &1396388060
 MeshRenderer:
   m_ObjectHideFlags: 0
