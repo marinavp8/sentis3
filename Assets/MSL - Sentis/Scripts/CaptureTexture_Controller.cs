@@ -9,10 +9,7 @@ public class CaptureTexture_Controller : MonoBehaviour
     private Texture2D _textureResult;
     private Texture2D _resizedTexture;
 
-    [SerializeField] float brightness = 1.2f; // Ajuste de brillo, > 1 aumenta, < 1 disminuye
-    [SerializeField] float contrast = 1.2f;   // Ajuste de contraste, > 1 aumenta, < 1 disminuye
-
-    [SerializeField] RawImage _mirror;
+    [SerializeField] Renderer _mirror;
 
     public void Awake()
     {
@@ -39,78 +36,31 @@ public class CaptureTexture_Controller : MonoBehaviour
             _resizedTexture = null;
         }
 
-            // Crear una nueva textura 2D con el mismo tamaño que la WebCamTexture
-            _textureResult = new Texture2D(_webcamTexture.width, _webcamTexture.height, TextureFormat.RGB24, false);
+        // Crear una nueva textura 2D con el mismo tamaño que la WebCamTexture
+        _textureResult = new Texture2D(_webcamTexture.width, _webcamTexture.height, TextureFormat.RGB24, false);
 
-            // Copiar los píxeles desde WebCamTexture a Texture2D
-            _textureResult.SetPixels(_webcamTexture.GetPixels());
-            _textureResult.Apply();
+        // Copiar los píxeles desde WebCamTexture a Texture2D
+        _textureResult.SetPixels(_webcamTexture.GetPixels());
+        _textureResult.Apply();
 
-            _mirror.texture = _textureResult;
+        _mirror.material.mainTexture = _textureResult;
 
-            // //_textureResult = new Texture2D(rTex.width, rTex.height);
 
-            // // Obtener los colores y ajustar brillo/contraste
-            // //Color32[] originalColors = _textureResult.GetPixels32();
-            // //Color32[] adjustedColors = AdjustImageColors(originalColors);
+        // Redimensionar la textura a 256x256 para el input del modelo
+        _resizedTexture = new Texture2D(256, 256);
 
-            // //// Aplicar los colores ajustados
-            // //_textureResult.SetPixels32(adjustedColors);
-            // //_textureResult.Apply();
+        // Crear una RenderTexture temporal para redimensionar
+        RenderTexture rt = RenderTexture.GetTemporary(256, 256);
+        Graphics.Blit(_textureResult, rt);
 
-            // Redimensionar la textura a 256x256 para el input del modelo
-            _resizedTexture = new Texture2D(256, 256);
+        // Leer la textura redimensionada
+        RenderTexture.active = rt;
+        _resizedTexture.ReadPixels(new Rect(0, 0, 256, 256), 0, 0);
+        _resizedTexture.Apply();
+        RenderTexture.active = null;
+        RenderTexture.ReleaseTemporary(rt);
 
-            // Crear una RenderTexture temporal para redimensionar
-            RenderTexture rt = RenderTexture.GetTemporary(256, 256);
-            Graphics.Blit(_textureResult, rt);
-
-            // Leer la textura redimensionada
-            RenderTexture.active = rt;
-            _resizedTexture.ReadPixels(new Rect(0, 0, 256, 256), 0, 0);
-            _resizedTexture.Apply();
-            RenderTexture.active = null;
-            RenderTexture.ReleaseTemporary(rt);
-
-            return _resizedTexture;
-    }
-
-    private Color32[] AdjustImageColors(Color32[] originalColors)
-    {
-        Color32[] adjustedColors = new Color32[originalColors.Length];
-
-        for (int i = 0; i < originalColors.Length; i++)
-        {
-            // Convertir a float para hacer los cálculos
-            float r = originalColors[i].r / 255f;
-            float g = originalColors[i].g / 255f;
-            float b = originalColors[i].b / 255f;
-
-            // Aplicar brillo
-            r *= brightness;
-            g *= brightness;
-            b *= brightness;
-
-            // Aplicar contraste
-            r = (r - 0.5f) * contrast + 0.5f;
-            g = (g - 0.5f) * contrast + 0.5f;
-            b = (b - 0.5f) * contrast + 0.5f;
-
-            // Asegurar que los valores estén entre 0 y 1
-            r = Mathf.Clamp01(r);
-            g = Mathf.Clamp01(g);
-            b = Mathf.Clamp01(b);
-
-            // Convertir de vuelta a Color32
-            adjustedColors[i] = new Color32(
-                (byte)(r * 255),
-                (byte)(g * 255),
-                (byte)(b * 255),
-                originalColors[i].a
-            );
-        }
-
-        return adjustedColors;
+        return _resizedTexture;
     }
 
     void OnDestroy()

@@ -16,6 +16,10 @@ public class NewMonoBehaviourScript : MonoBehaviour
     private Model sourceModel;
     private Worker worker;
     private float lastProcessTime = 0f;
+    private Tensor tensorEntrada;
+    private int[] tensorBuffer;
+    private Tensor<int> inputTensor;
+
     public Dictionary<string, GameObject> keypoints;
     [SerializeField] Material keypointMaterial;
     [SerializeField] float keypointSize = 0.02f;
@@ -26,7 +30,7 @@ public class NewMonoBehaviourScript : MonoBehaviour
     private Dictionary<string, Vector2> keypoints2D = new Dictionary<string, Vector2>();
     private Dictionary<string, float> keypointConfidence = new Dictionary<string, float>();
     private Texture2D pointTexture;
-    [SerializeField] float confidenceThreshold = 0.2f;
+    [SerializeField] float confidenceThreshold = 0.4f;
 
 
     private readonly (string, string)[] skeletonConnections = new[]
@@ -78,7 +82,7 @@ public class NewMonoBehaviourScript : MonoBehaviour
         PATH = "Assets/StreamingAssets/singlepose-thunder.sentis";
 #endif
 #if !UNITY_EDITOR
-            PATH = Application.streamingAssetsPath + "/singlepose-thunder.sentis";
+        PATH = Application.streamingAssetsPath + "/singlepose-thunder.sentis";
 #endif
         sourceModel = ModelLoader.Load(PATH);
         Logger.Log("sourceModel: " + sourceModel);
@@ -89,6 +93,21 @@ public class NewMonoBehaviourScript : MonoBehaviour
         pointTexture = new Texture2D(1, 1);
         pointTexture.SetPixel(0, 0, Color.white);
         pointTexture.Apply();
+
+        // Inicializar el buffer y el tensor una sola vez
+        _texture = _capture.toTexture2D();
+        tensorBuffer = new int[_texture.width * _texture.height * 3];
+        TensorShape formaTensor = new TensorShape(1, _texture.height, _texture.width, 3);
+        // tensorEntrada = new Tensor<int>(formaTensor, tensorBuffer);
+        tensorEntrada = new Tensor<int>(formaTensor, true);
+    }
+
+    void OnDestroy()
+    {
+        if (tensorEntrada != null)
+        {
+            tensorEntrada.Dispose();
+        }
     }
 
     private GameObject CreateKeypointSphere(string name)
@@ -157,34 +176,29 @@ public class NewMonoBehaviourScript : MonoBehaviour
             Color32[] colores = _texture.GetPixels32();
             Logger.Log($"Texture size: {_texture.width}x{_texture.height}, Colors length: {colores.Length}");
 
-            // 2. Crear un array de enteros para los datos del tensor
-            int[] datosTensor = new int[_texture.width * _texture.height * 3];
-
-            // 3. Convertir los colores a enteros y llenar el array de datos del tensor
+            // 2. Actualizar el buffer 
             int indiceTensor = 0;
             for (int y = 0; y < _texture.height; y++)
             {
                 for (int x = 0; x < _texture.width; x++)
                 {
                     Color32 color = colores[y * _texture.width + x];
-                    datosTensor[indiceTensor++] = color.r; // Rojo
-                    datosTensor[indiceTensor++] = color.g; // Verde
-                    datosTensor[indiceTensor++] = color.b; // Azul
+                    tensorBuffer[indiceTensor++] = color.r;
+                    tensorBuffer[indiceTensor++] = color.g;
+                    tensorBuffer[indiceTensor++] = color.b;
                 }
             }
-            Logger.Log($"Tensor data size: {datosTensor.Length}");
 
-            // 4. Crear la forma del tensor (1, 256, 256, 3)
-            TensorShape formaTensor = new TensorShape(1, _texture.height, _texture.width, 3);
+            // 3. Actualizar el tensor 
+            tensorEntrada = new Tensor<int>(tensorEntrada.shape, tensorBuffer);
 
-            // 5. Crear el ITensor a partir del array de datos y la forma
-            Tensor tensorEntrada = new Tensor<int>(formaTensor, datosTensor);
+            // tensorEntrada.Upload(tensorBuffer);
 
-            // 6. Usar el ITensor en tu modelo Sentis
-            // inference
+            // worker.Schedule(tensorEntrada);
+
+            // 4. Usar el tensor en el modelo 
             worker.Schedule(tensorEntrada);
 
-            // Get the output tensor from the model
             Tensor<float> outputTensor = worker.PeekOutput() as Tensor<float>;
             Logger.Log("outputTensor shape: " + outputTensor.shape);
             Logger.Log("outputTensor dataType: " + outputTensor.dataType);
@@ -192,7 +206,6 @@ public class NewMonoBehaviourScript : MonoBehaviour
             var outputData = readableTensor.AsReadOnlySpan();
             Logger.Log("outputData length: " + outputData.Length);
 
-            // Actualizar posiciones de los keypoints
             string[] keypointNameArray = keypointNames.Split(',');
             int keypointIndex = 0;
             for (int i = 0; i < keypointNameArray.Length; i++)
@@ -200,12 +213,11 @@ public class NewMonoBehaviourScript : MonoBehaviour
                 string keypointName = keypointNameArray[i];
                 if (keypointName == "rect")
                 {
-                    continue; // Saltamos rect sin incrementar el índice
+                    continue;
                 }
 
                 if (keypoints.ContainsKey(keypointName))
                 {
-                    // Verificar que no nos salimos de los límites
                     int baseIndex = keypointIndex * 3;
                     if (baseIndex + 2 >= outputData.Length)
                     {
@@ -213,15 +225,12 @@ public class NewMonoBehaviourScript : MonoBehaviour
                         break;
                     }
 
-                    // Cada keypoint tiene 3 valores (x, y, confidence)
                     float y = outputData[baseIndex];
                     float x = outputData[baseIndex + 1];
                     float confidence = outputData[baseIndex + 2];
 
-                    // Solo actualizamos si la confianza es suficiente
                     if (confidence > confidenceThreshold)
                     {
-                        // Convertir coordenadas de la imagen (0-1) a coordenadas del mundo
                         Vector3 rawPosition = new Vector3(
                             (0.5f - x) * transform.localScale.x,
                             (0.5f - y) * transform.localScale.y,
@@ -231,10 +240,8 @@ public class NewMonoBehaviourScript : MonoBehaviour
                         keypoints[keypointName].transform.localPosition = rawPosition;
                         keypoints[keypointName].SetActive(true);
 
-                        // Debug para ver las coordenadas
                         Logger.Log($"Keypoint {keypointName}: confidence={confidence}, x={x}, y={y}, pos={rawPosition}");
 
-                        // Agregar coordenadas 2D (usando las mismas coordenadas que para 3D)
                         keypoints2D[keypointName] = new Vector2(x, y);
                         keypointConfidence[keypointName] = confidence;
                     }
@@ -248,13 +255,11 @@ public class NewMonoBehaviourScript : MonoBehaviour
                         }
                     }
                 }
-                keypointIndex++; // Solo incrementamos para keypoints válidos
+                keypointIndex++;
             }
 
             UpdateConnections();
 
-            // 7. Liberar los tensores cuando ya no sean necesarios
-            tensorEntrada.Dispose();
             readableTensor.Dispose();
 
         }
@@ -265,53 +270,5 @@ public class NewMonoBehaviourScript : MonoBehaviour
     }
 
 
-        //void OnGUI()
-    //{
-    //    if (keypoints2D == null || keypoints2D.Count == 0) return;
 
-    //    // Calcular el rectángulo donde se muestra la imagen de la cámara
-    //    float aspectRatio = (float)_texture.width / _texture.height;
-    //    float scaleHeight = Screen.height;
-    //    float scaleWidth = scaleHeight * aspectRatio;
-    //    float leftIndent = (Screen.width - scaleWidth) / 2;
-
-    //    Rect cameraRect = new Rect(leftIndent, 0, scaleWidth, scaleHeight);
-
-    //    // Configurar estilo para el texto
-    //    GUIStyle style = new GUIStyle(GUI.skin.label);
-    //    style.normal.textColor = Color.white;
-    //    style.fontSize = 12;
-    //    style.fontStyle = FontStyle.Bold;
-
-    //    // Dibujar cada punto
-    //    foreach (var kvp in keypoints2D)
-    //    {
-    //        if (!keypointConfidence.ContainsKey(kvp.Key) || keypointConfidence[kvp.Key] < confidenceThreshold) continue;
-
-    //        // Convertir coordenadas normalizadas a coordenadas de pantalla dentro del viewport de la cámara
-    //        float screenX = leftIndent + (kvp.Value.x * scaleWidth);
-    //        float screenY = (1f - kvp.Value.y) * scaleHeight; // Invertir Y para que coincida con el sistema 3D
-
-    //        GUI.color = pointColor2D;
-    //        GUI.DrawTexture(
-    //            new Rect(screenX - pointSize2D / 2, screenY - pointSize2D / 2, pointSize2D, pointSize2D),
-    //            pointTexture
-    //        );
-
-    //        // Dibujar el nombre del punto y su score
-    //        string label = $"{kvp.Key} ({keypointConfidence[kvp.Key]:F2})";
-    //        GUI.color = Color.black;
-    //        GUI.Label(
-    //            new Rect(screenX + pointSize2D / 2 + 1, screenY - pointSize2D / 2 + 1, 150, 20),
-    //            label,
-    //            style
-    //        );
-    //        GUI.color = Color.white;
-    //        GUI.Label(
-    //            new Rect(screenX + pointSize2D / 2, screenY - pointSize2D / 2, 150, 20),
-    //            label,
-    //            style
-    //        );
-    //    }
-    //}
 }
