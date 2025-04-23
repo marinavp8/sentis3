@@ -11,6 +11,9 @@ public class NewMonoBehaviourScript : MonoBehaviour
     private Renderer _mirror = null;
     private Texture2D _texture = null;
 
+    [Header("FPS + Inference Time ms")]
+    Fps_Counter_Controller _fps;
+
 
     [Header("Sentis Variables")]
     private Model sourceModel;
@@ -57,6 +60,8 @@ public class NewMonoBehaviourScript : MonoBehaviour
 
     void Start()
     {
+        _fps = new();
+
         transform.localPosition = Vector3.zero;
         transform.localRotation = Quaternion.identity;
         transform.localScale = Vector3.one;
@@ -160,11 +165,22 @@ public class NewMonoBehaviourScript : MonoBehaviour
         }
     }
 
+    bool _infection = false;
+
     void Update()
     {
+        if (Input.GetKeyDown(KeyCode.Escape))
+            _infection = !_infection;
+
+        _fps.Calcule_FPS();
         // // Inferir cada 0.1 segundos para evitar problemas de rendimiento
-        if (Time.time - lastProcessTime < 0.1f)
-            return;
+        if (_infection)
+        {
+            if (Time.time - lastProcessTime < 0.1f)
+                return;
+        }
+
+        _fps.StartWatch();
 
         lastProcessTime = Time.time;
 
@@ -261,6 +277,8 @@ public class NewMonoBehaviourScript : MonoBehaviour
             UpdateConnections();
 
             readableTensor.Dispose();
+
+            _fps.StopWatch();
 
         }
         catch (System.Exception e)
