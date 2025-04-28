@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using Unity.Sentis;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections;
+using UnityEngine.Networking;
 
 [RequireComponent(typeof(CaptureTexture_Controller))]
 public class NewMonoBehaviourScript : MonoBehaviour
@@ -10,10 +12,16 @@ public class NewMonoBehaviourScript : MonoBehaviour
     private CaptureTexture_Controller _capture = null;
     private Renderer _mirror = null;
     private Texture2D _texture = null;
+    [SerializeField] private bool mirrorMode = true;
+
+    [Header("UI Elements")]
+    [SerializeField] private Button startButton;
+    [SerializeField] private GameObject permissionPanel;
+    [SerializeField] private Text statusText;
+    private bool isModelStarted = false;
 
     [Header("FPS + Inference Time ms")]
     Fps_Counter_Controller _fps;
-
 
     [Header("Sentis Variables")]
     private Model sourceModel;
@@ -22,6 +30,12 @@ public class NewMonoBehaviourScript : MonoBehaviour
     private Tensor tensorEntrada;
     private int[] tensorBuffer;
     private Tensor<int> inputTensor;
+
+    [Header("Temporary Spheres")]
+    [SerializeField] private Material tempSphereMaterial;
+    [SerializeField] private float tempSphereSize = 0.05f;
+    [SerializeField] private float tempSphereLifetime = 1.0f;
+    [SerializeField] private Color tempSphereColor = Color.red;
 
     public Dictionary<string, GameObject> keypoints;
     [SerializeField] Material keypointMaterial;
@@ -34,7 +48,6 @@ public class NewMonoBehaviourScript : MonoBehaviour
     private Dictionary<string, float> keypointConfidence = new Dictionary<string, float>();
     private Texture2D pointTexture;
     [SerializeField] float confidenceThreshold = 0.4f;
-
 
     private readonly (string, string)[] skeletonConnections = new[]
     {
@@ -56,6 +69,40 @@ public class NewMonoBehaviourScript : MonoBehaviour
     {
         _capture = GetComponent<CaptureTexture_Controller>();
         _mirror = GetComponent<Renderer>();
+
+        // Initialize UI elements
+        if (startButton != null)
+        {
+            startButton.onClick.AddListener(StartModel);
+            startButton.gameObject.SetActive(false);
+        }
+
+        if (permissionPanel != null)
+        {
+            permissionPanel.SetActive(true);
+        }
+
+        if (statusText != null)
+        {
+            statusText.text = "Esperando permisos de cámara...";
+        }
+    }
+
+    private void StartModel()
+    {
+        isModelStarted = true;
+        if (permissionPanel != null)
+        {
+            permissionPanel.SetActive(false);
+        }
+        if (startButton != null)
+        {
+            startButton.gameObject.SetActive(false);
+        }
+        if (statusText != null)
+        {
+            statusText.text = "Modelo iniciado";
+        }
     }
 
     void Start()
@@ -71,6 +118,11 @@ public class NewMonoBehaviourScript : MonoBehaviour
             transform.localScale = new Vector3(4, 3, 1); // Aspecto 4:3 común en webcams
         }
 
+        if (mirrorMode)
+        {
+            _mirror.material.mainTextureScale = new Vector2(-1, 1);
+        }
+
         keypoints = new Dictionary<string, GameObject>();
         string[] keypointNameArray = keypointNames.Split(',');
         foreach (string keypointName in keypointNameArray)
@@ -82,29 +134,204 @@ public class NewMonoBehaviourScript : MonoBehaviour
         }
 
         CreateConnections();
-        string PATH = "";
+
+        // Iniciamos la carga del modelo
+        StartCoroutine(InitializeModelAndCamera());
+    }
+
+    private IEnumerator InitializeModelAndCamera()
+    {
 #if UNITY_EDITOR
-        PATH = "Assets/StreamingAssets/singlepose-thunder.sentis";
+        Debug.Log("cargando desde el editor");
+        string PATH = "Assets/StreamingAssets/singlepose-thunder.sentis";
+        Debug.Log($"Ruta del modelo: {PATH}");
+        
+        if (!System.IO.File.Exists(PATH))
+        {
+            Debug.LogError($"El archivo del modelo no existe en: {PATH}");
+            yield break;
+        }
+
+        try
+        {
+            sourceModel = ModelLoader.Load(PATH);
+            if (sourceModel == null)
+            {
+                Debug.LogError($"No se pudo cargar el modelo desde: {PATH}");
+                yield break;
+            }
+            Debug.Log("Modelo cargado correctamente");
+
+            try
+            {
+                worker = new Worker(sourceModel, BackendType.GPUCompute);
+                Debug.Log("Worker GPU creado correctamente");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"No se pudo usar GPU, usando CPU: {e.Message}");
+                worker = new Worker(sourceModel, BackendType.CPU);
+                Debug.Log("Worker CPU creado correctamente");
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Error al cargar el modelo: {e.Message}\nStackTrace: {e.StackTrace}");
+            yield break;
+        }
+#elif UNITY_WEBGL
+        Debug.Log("cargando desde el webgl");
+        string PATH = "StreamingAssets/singlepose-thunder.sentis";
+        Debug.Log($"Intentando cargar modelo desde: {PATH}");
+        
+        using (UnityWebRequest www = UnityWebRequest.Get(PATH))
+        {
+            yield return www.SendWebRequest();
+
+            if (www.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"Error cargando el modelo: {www.error}");
+                if (statusText != null)
+                {
+                    statusText.text = "Error: No se pudo cargar el modelo";
+                }
+                yield break;
+            }
+
+            try
+            {
+                sourceModel = ModelLoader.Load(www.downloadHandler.data);
+                if (sourceModel == null)
+                {
+                    Debug.LogError("El modelo se cargó como null");
+                    yield break;
+                }
+                Debug.Log("Modelo cargado correctamente");
+                
+                try
+                {
+                    worker = new Worker(sourceModel, BackendType.GPUCompute);
+                    Debug.Log("Worker GPU creado correctamente");
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogWarning($"No se pudo usar GPU, usando CPU: {e.Message}");
+                    worker = new Worker(sourceModel, BackendType.CPU);
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Error al cargar el modelo: {e.Message}\nStackTrace: {e.StackTrace}");
+                yield break;
+            }
+        }
+#else
+        string PATH = System.IO.Path.Combine(Application.streamingAssetsPath, "singlepose-thunder.sentis");
 #endif
-#if !UNITY_EDITOR
-        PATH = Application.streamingAssetsPath + "/singlepose-thunder.sentis";
-#endif
-        sourceModel = ModelLoader.Load(PATH);
-        Logger.Log("sourceModel: " + sourceModel);
 
-        worker = new Worker(sourceModel, BackendType.GPUCompute);
-        _mirror.material.mainTexture = _capture.toTexture2D();
+        // Esperamos a que la cámara esté disponible
+        float timeout = 10f; // 10 segundos de timeout
+        float elapsed = 0f;
 
-        pointTexture = new Texture2D(1, 1);
-        pointTexture.SetPixel(0, 0, Color.white);
-        pointTexture.Apply();
+        while (!_capture.IsCameraAvailable() && elapsed < timeout)
+        {
+            elapsed += Time.deltaTime;
+            Debug.Log($"Esperando a que la cámara esté disponible... {elapsed:F1}s");
+            yield return null;
+        }
 
-        // Inicializar el buffer y el tensor una sola vez
-        _texture = _capture.toTexture2D();
-        tensorBuffer = new int[_texture.width * _texture.height * 3];
-        TensorShape formaTensor = new TensorShape(1, _texture.height, _texture.width, 3);
-        // tensorEntrada = new Tensor<int>(formaTensor, tensorBuffer);
-        tensorEntrada = new Tensor<int>(formaTensor, true);
+        if (!_capture.IsCameraAvailable())
+        {
+            Debug.LogError("Timeout esperando a que la cámara esté disponible");
+            if (statusText != null)
+            {
+                statusText.text = "Error: Timeout esperando cámara";
+            }
+            yield break;
+        }
+
+        if (sourceModel == null || worker == null)
+        {
+            Debug.LogError("El modelo o el worker no se inicializaron correctamente");
+            yield break;
+        }
+
+        try
+        {
+            // Ahora que la cámara está disponible, intentamos obtener la textura
+            _texture = _capture.toTexture2D();
+            if (_texture != null)
+            {
+                _mirror.material.mainTexture = _texture;
+
+                pointTexture = new Texture2D(1, 1);
+                pointTexture.SetPixel(0, 0, Color.white);
+                pointTexture.Apply();
+
+                // Initialize buffer and tensor
+                tensorBuffer = new int[_texture.width * _texture.height * 3];
+                TensorShape formaTensor = new TensorShape(1, _texture.height, _texture.width, 3);
+                tensorEntrada = new Tensor<int>(formaTensor, true);
+
+                Debug.Log("Cámara y modelo inicializados correctamente");
+            }
+            else
+            {
+                Debug.LogError("Failed to get texture from capture after camera was available");
+                if (statusText != null)
+                {
+                    statusText.text = "Error: No se pudo obtener imagen de la cámara";
+                }
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Error initializing camera: {e.Message}\nStackTrace: {e.StackTrace}");
+            if (statusText != null)
+            {
+                statusText.text = "Error al inicializar la cámara";
+            }
+        }
+    }
+
+    private bool LoadModelFromPath(string path)
+    {
+        try
+        {
+            sourceModel = ModelLoader.Load(path);
+            if (sourceModel == null)
+            {
+                Debug.LogError($"Failed to load model at path: {path}");
+                if (statusText != null)
+                {
+                    statusText.text = "Error: No se pudo cargar el modelo";
+                }
+                return false;
+            }
+
+            Debug.Log($"Model loaded successfully from: {path}");
+
+            // Initialize worker with fallback
+            try
+            {
+                worker = new Worker(sourceModel, BackendType.GPUCompute);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"GPU not available, falling back to CPU: {e.Message}");
+                worker = new Worker(sourceModel, BackendType.CPU);
+            }
+            return true;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Error loading model: {e.Message}\nStackTrace: {e.StackTrace}");
+            if (statusText != null)
+            {
+                statusText.text = "Error al cargar el modelo";
+            }
+            return false;
+        }
     }
 
     void OnDestroy()
@@ -123,6 +350,12 @@ public class NewMonoBehaviourScript : MonoBehaviour
         sphere.transform.localScale = new Vector3(keypointSize, keypointSize, keypointSize);
         var renderer = sphere.GetComponent<Renderer>();
         renderer.material = keypointMaterial;
+
+        // Remove any collider component if it exists
+        var collider = sphere.GetComponent<Collider>();
+        if (collider != null)
+            Destroy(collider);
+
         return sphere;
     }
 
@@ -169,11 +402,31 @@ public class NewMonoBehaviourScript : MonoBehaviour
 
     void Update()
     {
+        if (!isModelStarted)
+        {
+            // Check if camera is available
+            if (_capture != null && _capture.IsCameraAvailable())
+            {
+                if (permissionPanel != null)
+                {
+                    permissionPanel.SetActive(false);
+                }
+                if (startButton != null)
+                {
+                    startButton.gameObject.SetActive(true);
+                }
+                if (statusText != null)
+                {
+                    statusText.text = "Cámara disponible. Presiona Iniciar para comenzar.";
+                }
+            }
+            return;
+        }
+
         if (Input.GetKeyDown(KeyCode.Escape))
             _infection = !_infection;
 
         _fps.Calcule_FPS();
-        // // Inferir cada 0.1 segundos para evitar problemas de rendimiento
         if (_infection)
         {
             if (Time.time - lastProcessTime < 0.1f)
@@ -205,12 +458,9 @@ public class NewMonoBehaviourScript : MonoBehaviour
                 }
             }
 
-            // 3. Actualizar el tensor 
-            tensorEntrada = new Tensor<int>(tensorEntrada.shape, tensorBuffer);
-
-            // tensorEntrada.Upload(tensorBuffer);
-
-            // worker.Schedule(tensorEntrada);
+            // 3. Crear nuevo tensor cada vez
+            TensorShape formaTensor = new TensorShape(1, _texture.height, _texture.width, 3);
+            tensorEntrada = new Tensor<int>(formaTensor, tensorBuffer);
 
             // 4. Usar el tensor en el modelo 
             worker.Schedule(tensorEntrada);
@@ -256,6 +506,12 @@ public class NewMonoBehaviourScript : MonoBehaviour
                         keypoints[keypointName].transform.localPosition = rawPosition;
                         keypoints[keypointName].SetActive(true);
 
+                        // Crear esfera temporal para las manos
+                        if (keypointName == "leftWrist" || keypointName == "rightWrist")
+                        {
+                            CreateTemporarySphere(rawPosition);
+                        }
+
                         Logger.Log($"Keypoint {keypointName}: confidence={confidence}, x={x}, y={y}, pos={rawPosition}");
 
                         keypoints2D[keypointName] = new Vector2(x, y);
@@ -287,6 +543,17 @@ public class NewMonoBehaviourScript : MonoBehaviour
         }
     }
 
+    private void CreateTemporarySphere(Vector3 position)
+    {
+        GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        sphere.transform.parent = this.transform;
+        sphere.transform.localPosition = position;
+        sphere.transform.localScale = new Vector3(tempSphereSize, tempSphereSize, tempSphereSize);
 
+        var renderer = sphere.GetComponent<Renderer>();
+        renderer.material = tempSphereMaterial;
+        renderer.material.color = tempSphereColor;
 
+        Destroy(sphere, tempSphereLifetime);
+    }
 }

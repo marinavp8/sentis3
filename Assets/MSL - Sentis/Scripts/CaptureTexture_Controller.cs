@@ -8,10 +8,32 @@ public class CaptureTexture_Controller : MonoBehaviour
     private WebCamTexture _webcamTexture;
     private Texture2D _textureResult;
     private Texture2D _resizedTexture;
+    private bool _cameraPermissionGranted = false;
 
     [SerializeField] Renderer _mirror;
 
     public void Awake()
+    {
+        StartCoroutine(RequestCameraPermission());
+    }
+
+    private IEnumerator RequestCameraPermission()
+    {
+        // Request camera permission
+        yield return Application.RequestUserAuthorization(UserAuthorization.WebCam);
+
+        if (Application.HasUserAuthorization(UserAuthorization.WebCam))
+        {
+            _cameraPermissionGranted = true;
+            InitializeCamera();
+        }
+        else
+        {
+            Debug.LogError("Camera permission not granted");
+        }
+    }
+
+    private void InitializeCamera()
     {
         WebCamDevice[] devices = WebCamTexture.devices;
 
@@ -26,8 +48,16 @@ public class CaptureTexture_Controller : MonoBehaviour
         }
     }
 
+    public bool IsCameraAvailable()
+    {
+        return _cameraPermissionGranted && _webcamTexture != null && _webcamTexture.isPlaying;
+    }
+
     public Texture2D toTexture2D()
     {
+        if (!IsCameraAvailable())
+            return null;
+
         if (_textureResult != null)
         {
             Destroy(_textureResult);
@@ -44,7 +74,6 @@ public class CaptureTexture_Controller : MonoBehaviour
         _textureResult.Apply();
 
         _mirror.material.mainTexture = _textureResult;
-
 
         // Redimensionar la textura a 256x256 para el input del modelo
         _resizedTexture = new Texture2D(256, 256);
@@ -65,6 +94,9 @@ public class CaptureTexture_Controller : MonoBehaviour
 
     void OnDestroy()
     {
-        _webcamTexture.Stop();
+        if (_webcamTexture != null)
+        {
+            _webcamTexture.Stop();
+        }
     }
 }
